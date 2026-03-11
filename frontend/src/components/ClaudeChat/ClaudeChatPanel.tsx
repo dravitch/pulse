@@ -8,10 +8,10 @@ interface Message {
 }
 
 const QUICK_ACTIONS = [
-  { label: 'Analyze week', msg: 'Analyze my portfolio performance this week and give key insights.' },
-  { label: 'Should I rebalance?', msg: 'Should I rebalance my portfolio now? Check current drift vs targets.' },
-  { label: 'Explain Sharpe', msg: 'Explain the Sharpe ratio and how it applies to my portfolio.' },
-  { label: 'DCA strategy', msg: 'Review my DCA strategy. Is my monthly amount optimal for my goals?' },
+  { label: 'Analyse semaine', msg: 'Analyse les performances de mon portefeuille cette semaine et donne les points clés.' },
+  { label: 'Rééquilibrer ?', msg: 'Dois-je rééquilibrer mon portefeuille maintenant ? Vérifie le drift actuel vs les cibles.' },
+  { label: 'Ratio de Sharpe', msg: 'Explique le ratio de Sharpe et comment il s\'applique à mon portefeuille.' },
+  { label: 'Stratégie DCA', msg: 'Évalue ma stratégie DCA. Mon montant mensuel est-il optimal pour mes objectifs ?' },
 ]
 
 interface Props {
@@ -22,7 +22,7 @@ export default function ClaudeChatPanel({ compact = false }: Props) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Hello. I\'m PULSE, your personal intelligence assistant. I have access to your portfolio and news feed. How can I help?',
+      content: 'Bonjour. Je suis PULSE, votre assistant personnel spécialisé en finance crypto. J\'ai accès à votre portefeuille et à votre flux d\'actualités. Comment puis-je vous aider ?',
     },
   ])
   const [input, setInput] = useState('')
@@ -50,7 +50,7 @@ export default function ClaudeChatPanel({ compact = false }: Props) {
     } catch (e) {
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: 'Error connecting to Claude. Check your API key.' },
+        { role: 'assistant', content: 'Erreur de connexion à Claude. Vérifiez votre clé API.' },
       ])
     } finally {
       setLoading(false)
@@ -129,7 +129,7 @@ export default function ClaudeChatPanel({ compact = false }: Props) {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about your portfolio or news..."
+            placeholder="Posez une question sur votre portefeuille ou les actualités..."
             disabled={loading}
             className="flex-1 bg-[#12121a] border border-[#1e1e2e] focus:border-indigo-500 rounded-lg px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 outline-none transition-colors"
           />

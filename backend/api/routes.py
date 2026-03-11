@@ -1,3 +1,4 @@
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
@@ -19,43 +20,24 @@ async def health():
 
 @router.get("/portfolio")
 async def get_portfolio():
-    """Latest portfolio positions with current prices."""
-    rows = await fetch_all("""
-        SELECT DISTINCT ON (asset)
-            asset, units, avg_cost_basis, current_value, time
-        FROM portfolio_positions
-        ORDER BY asset, time DESC
-    """)
-
-    positions = [dict(r) for r in rows]
-    total_value = sum(p["current_value"] for p in positions)
-
-    for p in positions:
-        p["allocation"] = (p["current_value"] / total_value * 100) if total_value else 0
-
-    return {"positions": positions, "total_value": total_value}
+    """Latest portfolio positions with live prices and drift."""
+    from ..modules.finpulse.portfolio import get_portfolio_snapshot
+    return await get_portfolio_snapshot()
 
 
 @router.get("/portfolio/insight")
 async def get_portfolio_insight():
     """AI-generated daily brief."""
     portfolio = await get_portfolio()
-    total = portfolio["total_value"]
     positions = {p["asset"]: p for p in portfolio["positions"]}
 
-    targets = await get_config("portfolio_targets") or {"BTC": 60, "ETH": 30, "PAXG": 10}
-    max_drift = max(
-        abs(positions.get(a, {}).get("allocation", 0) - t)
-        for a, t in targets.items()
-    ) if positions else 0
-
     data = {
-        "total_value": total,
+        "total_value": portfolio["total_value"],
         "btc_allocation": positions.get("BTC", {}).get("allocation", 0),
         "eth_allocation": positions.get("ETH", {}).get("allocation", 0),
         "paxg_allocation": positions.get("PAXG", {}).get("allocation", 0),
-        "drift": max_drift,
-        "change_24h": 0,  # TODO: compute from time-series
+        "drift": portfolio.get("max_drift", 0),
+        "change_24h": 0,
     }
 
     insight = await kernel.generate_portfolio_insight(data)
@@ -63,6 +45,60 @@ async def get_portfolio_insight():
 
 
 # ─── PRICES ────────────────────────────────────────────────────────────────
+
+@router.get("/prices/current")
+async def get_current_prices():
+    """
+    Primary price endpoint.
+    Strategy:
+    1. Return from DB if data is < 10 min old (fast, cached)
+    2. Else hit the exchange live and store the result
+    Always returns within ~2s.
+    """
+    from ..modules.finpulse.exchanges import (
+        get_latest_prices_from_db,
+        fetch_and_store_prices,
+    )
+
+    db_prices = await get_latest_prices_from_db()
+    stale_cutoff = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+
+    fresh = {
+        asset: data
+        for asset, data in db_prices.items()
+        if data.get("time", "") >= stale_cutoff
+    }
+
+    if len(fresh) == 3:
+        return {
+            "source": "cache",
+            "prices": fresh,
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    # Stale or first boot — fetch live and store
+    live_prices = await fetch_and_store_prices()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    return {
+        "source": "live",
+        "prices": {
+            asset: {"price": price, "time": now_iso}
+            for asset, price in live_prices.items()
+            if price is not None
+        },
+        "fetched_at": now_iso,
+    }
+
+
+@router.get("/prices/latest/all")
+async def get_latest_prices():
+    rows = await fetch_all("""
+        SELECT DISTINCT ON (symbol) symbol, price, volume_24h, time
+        FROM market_prices
+        ORDER BY symbol, time DESC
+    """)
+    return {"prices": [dict(r) for r in rows]}
+
 
 @router.get("/prices/{symbol}")
 async def get_prices(symbol: str, limit: int = 100):
@@ -74,16 +110,6 @@ async def get_prices(symbol: str, limit: int = 100):
         LIMIT $2
     """, symbol.upper(), limit)
     return {"symbol": symbol.upper(), "prices": [dict(r) for r in rows]}
-
-
-@router.get("/prices/latest/all")
-async def get_latest_prices():
-    rows = await fetch_all("""
-        SELECT DISTINCT ON (symbol) symbol, price, volume_24h, time
-        FROM market_prices
-        ORDER BY symbol, time DESC
-    """)
-    return {"prices": [dict(r) for r in rows]}
 
 
 # ─── SIGNALS ───────────────────────────────────────────────────────────────
@@ -147,7 +173,7 @@ async def get_news(limit: int = 50, unread_only: bool = False):
         FROM rss_articles
         WHERE archived = FALSE
     """
-    params = []
+    params: list = []
     if unread_only:
         query += " AND read = FALSE"
     query += f" ORDER BY relevance_score DESC NULLS LAST, fetched_at DESC LIMIT ${len(params)+1}"
@@ -194,7 +220,6 @@ class ChatMessage(BaseModel):
 
 @router.post("/chat")
 async def chat(body: ChatMessage):
-    # Build context
     portfolio = await get_portfolio()
     signals_rows = await fetch_all(
         "SELECT signal_type, asset, confidence FROM signals ORDER BY time DESC LIMIT 5"
@@ -227,3 +252,13 @@ async def read_config(key: str):
     if value is None:
         raise HTTPException(404, f"Config key '{key}' not found")
     return {"key": key, "value": value}
+
+
+# ─── MANUAL TRIGGER (dev/debug) ────────────────────────────────────────────
+
+@router.post("/admin/fetch-prices")
+async def admin_fetch_prices():
+    """Manually trigger a price fetch. Useful for testing without waiting for scheduler."""
+    from ..modules.finpulse.exchanges import fetch_and_store_prices
+    prices = await fetch_and_store_prices()
+    return {"ok": True, "prices": prices}

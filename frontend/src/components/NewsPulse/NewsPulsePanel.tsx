@@ -55,7 +55,7 @@ export default function NewsPulsePanel({ compact = false }: Props) {
             </a>
           </div>
         ))}
-        {articles.length === 0 && <p className="text-xs text-slate-600">No articles yet</p>}
+        {articles.length === 0 && <p className="text-xs text-slate-600">Aucun article pour l'instant</p>}
       </div>
     )
   }
@@ -70,7 +70,7 @@ export default function NewsPulsePanel({ compact = false }: Props) {
             onClick={() => setUnreadOnly(!unreadOnly)}
             className={`pulse-btn-ghost text-xs ${unreadOnly ? 'border-indigo-500 text-indigo-300' : ''}`}
           >
-            {unreadOnly ? 'All' : 'Unread only'}
+            {unreadOnly ? 'Tous' : 'Non lus'}
           </button>
         </div>
         <DigestButton />
@@ -121,7 +121,7 @@ export default function NewsPulsePanel({ compact = false }: Props) {
 
         {articles.length === 0 && (
           <div className="text-center py-12 text-slate-600 text-sm">
-            No articles yet. Feeds are fetched every 15 minutes.
+            Aucun article pour l'instant. Les flux sont récupérés toutes les 15 minutes.
           </div>
         )}
       </div>
@@ -157,16 +157,16 @@ function DigestButton() {
     <div className="relative">
       <div className="flex gap-1">
         <button onClick={() => fetchDigest('morning')} className="pulse-btn-ghost text-xs" disabled={loading}>
-          Morning brief
+          Brief matinal
         </button>
         <button onClick={() => fetchDigest('evening')} className="pulse-btn-ghost text-xs" disabled={loading}>
-          Evening brief
+          Brief du soir
         </button>
       </div>
       {digest && (
         <div className="absolute right-0 top-10 w-80 pulse-card border-indigo-500/30 z-10 shadow-xl">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-xs text-indigo-400 uppercase tracking-widest">Digest</span>
+            <span className="text-xs text-indigo-400 uppercase tracking-widest">Synthèse</span>
             <button onClick={() => setDigest(null)} className="text-slate-600 hover:text-white text-xs">✕</button>
           </div>
           <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">{digest}</p>

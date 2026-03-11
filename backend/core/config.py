@@ -20,12 +20,14 @@ class Settings(BaseSettings):
 
     # Anthropic
     anthropic_api_key: str = Field(default="", env="ANTHROPIC_API_KEY")
-    claude_model: str = "claude-sonnet-4-20250514"
+    claude_model: str = "claude-sonnet-4-5"
     claude_max_tokens: int = 2000
 
     # CCXT / Exchanges
     exchange_id: str = "binance"
-    ccxt_sandbox: bool = True  # Use sandbox by default for MVP
+    # Sandbox OFF: public market data (prices) doesn't require an API key.
+    # Binance sandbox doesn't support fetch_ticker anyway.
+    ccxt_sandbox: bool = False
 
     # Scheduler
     price_fetch_interval_minutes: int = 5
