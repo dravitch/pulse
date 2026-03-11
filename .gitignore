@@ -1,0 +1,23 @@
+# Environment
+.env
+.pgdata/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Nix
+result
+result-*
+
+# IDE
+.vscode/
+.idea/

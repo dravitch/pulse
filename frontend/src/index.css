@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    background-color: #0a0a0f;
+    color: #e2e8f0;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #12121a;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1e1e2e;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #6366f1;
+  }
+}
+
+@layer components {
+  .pulse-card {
+    @apply bg-[#12121a] border border-[#1e1e2e] rounded-xl p-4;
+  }
+  .pulse-btn {
+    @apply bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors;
+  }
+  .pulse-btn-ghost {
+    @apply border border-[#1e1e2e] hover:border-indigo-500 text-slate-400 hover:text-white text-sm px-3 py-1.5 rounded-lg transition-colors;
+  }
+  .pulse-tag {
+    @apply text-xs px-2 py-0.5 rounded-full font-medium;
+  }
+}
