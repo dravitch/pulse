@@ -1,11 +1,17 @@
 # PULSE — Script de demarrage
-# Usage: .\start.ps1  ou  clic-droit > "Executer avec PowerShell"
+# Usage: .\start.ps1           -> demarrage normal
+#        .\start.ps1 -Update   -> verifie et met a jour les composants avant
+
+param(
+    [switch]$Update
+)
 
 $ErrorActionPreference = "Stop"
 $ROOT = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 function Write-Step($msg) { Write-Host "`n>>> $msg" -ForegroundColor Cyan }
 function Write-OK($msg)   { Write-Host "    OK  $msg" -ForegroundColor Green }
+function Write-Warn($msg) { Write-Host "    >>  $msg" -ForegroundColor Yellow }
 function Write-Fail($msg) { Write-Host "    ERR $msg" -ForegroundColor Red }
 
 Write-Host ""
@@ -13,6 +19,65 @@ Write-Host "==========================================" -ForegroundColor Magenta
 Write-Host "   PULSE OS - Demarrage                   " -ForegroundColor Magenta
 Write-Host "==========================================" -ForegroundColor Magenta
 Write-Host ""
+
+# ============================================================
+# MISES A JOUR (optionnel : .\start.ps1 -Update)
+# ============================================================
+if ($Update) {
+    Write-Step "Mode mise a jour active (-Update)"
+
+    # --- npm ---
+    Write-Host "    npm : verification..." -ForegroundColor Yellow
+    try {
+        $npmCurrent = (npm --version 2>&1).Trim()
+        $npmLatest  = (npm view npm version 2>&1).Trim()
+        if ($npmCurrent -ne $npmLatest) {
+            Write-Warn "npm $npmCurrent -> $npmLatest  (mise a jour en cours...)"
+            npm install -g npm@latest 2>&1 | Out-Null
+            Write-OK "npm mis a jour vers $npmLatest"
+        } else {
+            Write-OK "npm $npmCurrent est a jour"
+        }
+    } catch {
+        Write-Warn "Impossible de verifier npm (Node.js installe ?)"
+    }
+
+    # --- pip dans le venv ---
+    $backendPy = Join-Path $ROOT "backend\venv\Scripts\python.exe"
+    if (Test-Path $backendPy) {
+        Write-Host "    pip (venv) : verification..." -ForegroundColor Yellow
+        try {
+            $pipOut = & $backendPy -m pip install --upgrade pip 2>&1
+            if ($pipOut -match "Successfully installed pip-(.+)") {
+                Write-OK "pip mis a jour vers $($Matches[1])"
+            } else {
+                $pipVer = (& $backendPy -m pip --version 2>&1) -replace "pip (.+?) from.*", '$1'
+                Write-OK "pip $pipVer est a jour"
+            }
+        } catch {
+            Write-Warn "Impossible de mettre a jour pip dans le venv"
+        }
+    } else {
+        Write-Warn "Venv introuvable, pip non verifie"
+    }
+
+    # --- Docker Desktop ---
+    Write-Host "    Docker Desktop : verification..." -ForegroundColor Yellow
+    try {
+        $dockerVer = (docker version --format "{{.Client.Version}}" 2>&1).Trim()
+        Write-OK "Docker Desktop $dockerVer"
+        Write-Warn "Mise a jour Docker Desktop : ouvrez Docker Desktop > Settings > Software updates"
+    } catch {
+        Write-Warn "Docker non accessible pour la verification"
+    }
+
+    Write-Host ""
+    Write-Host "    Mises a jour terminees. Demarrage de PULSE..." -ForegroundColor Cyan
+}
+
+# ============================================================
+# DEMARRAGE
+# ============================================================
 
 # --- 1. Docker Desktop ---
 Write-Step "Verification de Docker Desktop..."
@@ -25,7 +90,7 @@ try {
 } catch {}
 
 if (-not $dockerRunning) {
-    Write-Host "    Docker Desktop n'est pas demarre. Lancement..." -ForegroundColor Yellow
+    Write-Warn "Docker Desktop n'est pas demarre. Lancement..."
 
     $dockerExe = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
     if (-not (Test-Path $dockerExe)) {
@@ -98,7 +163,7 @@ if (-not (Test-Path $backendPython)) {
 
 $backendRunning = $false
 try {
-    $resp = Invoke-WebRequest -Uri "http://127.0.0.1:8000/health" -TimeoutSec 2 -UseBasicParsing -ErrorAction SilentlyContinue
+    $resp = Invoke-WebRequest -Uri "http://127.0.0.1:8000/api/health" -TimeoutSec 2 -UseBasicParsing -ErrorAction SilentlyContinue
     if ($resp.StatusCode -eq 200) { $backendRunning = $true }
 } catch {}
 
@@ -117,7 +182,7 @@ if ($backendRunning) {
         Start-Sleep -Seconds 2
         $elapsed += 2
         try {
-            $resp = Invoke-WebRequest -Uri "http://127.0.0.1:8000/health" -TimeoutSec 2 -UseBasicParsing -ErrorAction SilentlyContinue
+            $resp = Invoke-WebRequest -Uri "http://127.0.0.1:8000/api/health" -TimeoutSec 2 -UseBasicParsing -ErrorAction SilentlyContinue
             if ($resp.StatusCode -eq 200) {
                 $msg = "Backend pret sur http://127.0.0.1:8000 (" + $elapsed + "s)"
                 Write-OK $msg
@@ -170,6 +235,8 @@ Write-Host "   Frontend  : http://127.0.0.1:5173" -ForegroundColor White
 Write-Host "   Backend   : http://127.0.0.1:8000" -ForegroundColor White
 Write-Host "   API docs  : http://127.0.0.1:8000/docs" -ForegroundColor White
 Write-Host "   DB        : localhost:5432  user=pulse  db=pulse" -ForegroundColor White
+Write-Host ""
+Write-Host "   Tip: .\start.ps1 -Update  pour mettre a jour npm/pip/Docker" -ForegroundColor DarkGray
 Write-Host ""
 
 $url = "http://127.0.0.1:5173"
