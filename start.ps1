@@ -46,16 +46,15 @@ if ($Update) {
     $backendPy = Join-Path $ROOT "backend\venv\Scripts\python.exe"
     if (Test-Path $backendPy) {
         Write-Host "    pip (venv) : verification..." -ForegroundColor Yellow
-        try {
-            $pipOut = & $backendPy -m pip install --upgrade pip 2>&1
-            if ($pipOut -match "Successfully installed pip-(.+)") {
-                Write-OK "pip mis a jour vers $($Matches[1])"
-            } else {
-                $pipVer = (& $backendPy -m pip --version 2>&1) -replace "pip (.+?) from.*", '$1'
-                Write-OK "pip $pipVer est a jour"
-            }
-        } catch {
-            Write-Warn "Impossible de mettre a jour pip dans le venv"
+        $ErrorActionPreference = "Continue"
+        $pipOut = & $backendPy -m pip install --upgrade pip 2>&1 | Out-String
+        $ErrorActionPreference = "Stop"
+        if ($pipOut -match "Successfully installed pip-(.+)") {
+            Write-OK ("pip mis a jour vers " + $Matches[1].Trim())
+        } elseif ($pipOut -match "pip (\d[\d.]+)") {
+            Write-OK ("pip " + $Matches[1] + " est a jour")
+        } else {
+            Write-Warn "pip verifie (sortie non reconnue)"
         }
     } else {
         Write-Warn "Venv introuvable, pip non verifie"
@@ -231,13 +230,12 @@ Write-Host "==========================================" -ForegroundColor Magenta
 Write-Host "   PULSE OS est pret !" -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Magenta
 Write-Host ""
-Write-Host "   Frontend  : http://127.0.0.1:5173" -ForegroundColor White
-Write-Host "   Backend   : http://127.0.0.1:8000" -ForegroundColor White
-Write-Host "   API docs  : http://127.0.0.1:8000/docs" -ForegroundColor White
+Write-Host "   Frontend  : http://localhost:5173" -ForegroundColor White
+Write-Host "   Backend   : http://localhost:8000" -ForegroundColor White
+Write-Host "   API docs  : http://localhost:8000/docs" -ForegroundColor White
 Write-Host "   DB        : localhost:5432  user=pulse  db=pulse" -ForegroundColor White
 Write-Host ""
 Write-Host "   Tip: .\start.ps1 -Update  pour mettre a jour npm/pip/Docker" -ForegroundColor DarkGray
 Write-Host ""
 
-$url = "http://127.0.0.1:5173"
-Start-Process $url
+Start-Process "http://localhost:5173"
